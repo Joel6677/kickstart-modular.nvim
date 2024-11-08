@@ -1,6 +1,14 @@
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
+-- Regex
+
+vim.keymap.set('n', '<leader>a', function()
+  local word = vim.fn.input 'Word to replace: '
+  local replacement = vim.fn.input 'Replace with: '
+  vim.cmd(':%s/' .. word .. '/' .. replacement .. '/gc')
+end, { desc = 'Substitute word with confirmation' })
+
 -- Set highlight on search, but clear on pressing <Esc> in normal mode
 vim.opt.hlsearch = true
 vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
