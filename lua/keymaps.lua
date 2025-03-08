@@ -3,7 +3,7 @@
 
 -- Regex
 
-vim.keymap.set('n', '<leader>a', function()
+vim.keymap.set('n', '<leader>cs', function()
   local word = vim.fn.input 'Word to replace: '
   local replacement = vim.fn.input 'Replace with: '
   vim.cmd(':%s/' .. word .. '/' .. replacement .. '/gc')

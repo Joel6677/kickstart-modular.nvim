@@ -15,23 +15,23 @@ return {
       require('dapui').setup()
       require('dap-go').setup()
 
-      -- require('nvim-dap-virtual-text').setup {
-      --   -- This just tries to mitigate the chance that I leak tokens here. Probably won't stop it from happening...
-      --   display_callback = function(variable)
-      --     local name = string.lower(variable.name)
-      --     local value = string.lower(variable.value)
-      --     if name:match 'secret' or name:match 'api' or value:match 'secret' or value:match 'api' then
-      --       return '*****'
-      --     end
-      --
-      --     if #variable.value > 15 then
-      --       return ' ' .. string.sub(variable.value, 1, 15) .. '... '
-      --     end
-      --
-      --     return ' ' .. variable.value
-      --   end,
-      -- }
-      --
+      require('nvim-dap-virtual-text').setup {
+        -- This just tries to mitigate the chance that I leak tokens here. Probably won't stop it from happening...
+        display_callback = function(variable)
+          local name = string.lower(variable.name)
+          local value = string.lower(variable.value)
+          if name:match 'secret' or name:match 'api' or value:match 'secret' or value:match 'api' then
+            return '*****'
+          end
+
+          if #variable.value > 15 then
+            return ' ' .. string.sub(variable.value, 1, 15) .. '... '
+          end
+
+          return ' ' .. variable.value
+        end,
+      }
+
       -- Handled by nvim-dap-go
       -- dap.adapters.go = {
       --   type = "server",
@@ -41,86 +41,6 @@ return {
       --     args = { "dap", "-l", "127.0.0.1:${port}" },
       --   },
       -- }
-
-      dap.adapters.codelldb = {
-        type = 'server',
-        port = '${port}',
-        executable = {
-          command = 'codelldb', -- or if not in $PATH: "/absolute/path/to/codelldb"
-          args = { '--port', '${port}' },
-
-          -- On windows you may have to uncomment this:
-          -- detached = false,
-        },
-      }
-
-      dap.configurations.cpp = {
-        {
-          name = 'Launch file',
-          type = 'codelldb',
-          request = 'launch',
-          program = function()
-            return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
-          end,
-          cwd = '${workspaceFolder}',
-          stopOnEntry = false,
-        },
-      }
-      dap.configurations.c = dap.configurations.cpp
-      dap.configurations.rust = dap.configurations.cpp
-
-      dap.adapters.python = function(cb, config)
-        if config.request == 'attach' then
-          ---@diagnostic disable-next-line: undefined-field
-          local port = (config.connect or config).port
-          ---@diagnostic disable-next-line: undefined-field
-          local host = (config.connect or config).host or '127.0.0.1'
-          cb {
-            type = 'server',
-            port = assert(port, '`connect.port` is required for a python `attach` configuration'),
-            host = host,
-            options = {
-              source_filetype = 'python',
-            },
-          }
-        else
-          cb {
-            type = 'executable',
-            command = vim.fn.expand '~' .. '/.virtualenvs/debugpy/bin/python',
-            -- command = os.getenv 'VIRTUAL_ENV' .. '/bin/python',
-            args = { '-m', 'debugpy.adapter' },
-            options = {
-              source_filetype = 'python',
-            },
-          }
-        end
-      end
-
-      dap.configurations.python = {
-        {
-          -- The first three options are required by nvim-dap
-          type = 'python', -- the type here established the link to the adapter definition: `dap.adapters.python`
-          request = 'launch',
-          name = 'Launch file',
-
-          -- Options below are for debugpy, see https://github.com/microsoft/debugpy/wiki/Debug-configuration-settings for supported options
-
-          program = '${file}', -- This configuration will launch the current file if used.
-          pythonPath = function()
-            -- debugpy supports launching an application with a different interpreter then the one used to launch debugpy itself.
-            -- The code below looks for a `venv` or `.venv` folder in the current directly and uses the python within.
-            -- You could adapt this - to for example use the `VIRTUAL_ENV` environment variable.
-            local cwd = vim.fn.getcwd()
-            if vim.fn.executable(cwd .. '/venv/bin/python') == 1 then
-              return cwd .. '/venv/bin/python'
-            elseif vim.fn.executable(cwd .. '/.venv/bin/python') == 1 then
-              return cwd .. '/.venv/bin/python'
-            else
-              return '/usr/local/bin/python'
-            end
-          end,
-        },
-      }
 
       local elixir_ls_debugger = vim.fn.exepath 'elixir-ls-debugger'
       if elixir_ls_debugger ~= '' then
@@ -142,6 +62,60 @@ return {
         }
       end
 
+      -- python adapter
+      dap.adapters.python = function(cb, config)
+        if config.request == 'attach' then
+          ---@diagnostic disable-next-line: undefined-field
+          local port = (config.connect or config).port
+          ---@diagnostic disable-next-line: undefined-field
+          local host = (config.connect or config).host or '127.0.0.1'
+          cb {
+            type = 'server',
+            port = assert(port, '`connect.port` is required for a python `attach` configuration'),
+            host = host,
+            options = {
+              source_filetype = 'python',
+            },
+          }
+        else
+          cb {
+            type = 'executable',
+            command = os.getenv 'VIRTUAL_ENV' .. '/bin/python',
+            args = { '-m', 'debugpy.adapter' },
+            options = {
+              source_filetype = 'python',
+            },
+          }
+        end
+      end
+
+      -- python config
+      dap.configurations.python = {
+        {
+          -- The first three options are required by nvim-dap
+          type = 'python', -- the type here established the link to the adapter definition: `dap.adapters.python`
+          request = 'launch',
+          name = 'Launch file',
+
+          -- Options below are for debugpy, see https://github.com/microsoft/debugpy/wiki/Debug-configuration-settings for supported options
+
+          program = '${file}', -- This configuration will launch the current file if used.
+          pythonPath = function()
+            -- debugpy supports launching an application with a different interpreter then the one used to launch debugpy itself.
+            -- The code below looks for a `venv` or `.venv` folder in the current directly and uses the python within.
+            -- You could adapt this - to for example use the `VIRTUAL_ENV` environment variable.
+            local cwd = vim.fn.getcwd()
+            if vim.fn.executable(cwd .. '/venv/bin/python') == 1 then
+              return cwd .. '/venv/bin/python'
+            elseif vim.fn.executable(cwd .. '/.venv/bin/python') == 1 then
+              return cwd .. '/.venv/bin/python'
+            else
+              return '/usr/bin/python'
+            end
+          end,
+        },
+      }
+
       vim.keymap.set('n', '<space>b', dap.toggle_breakpoint)
       vim.keymap.set('n', '<space>gb', dap.run_to_cursor)
 
@@ -155,8 +129,7 @@ return {
       vim.keymap.set('n', '<F3>', dap.step_over)
       vim.keymap.set('n', '<F4>', dap.step_out)
       vim.keymap.set('n', '<F5>', dap.step_back)
-      vim.keymap.set('n', '<F6>', dap.close)
-      vim.keymap.set('n', '<F12>', dap.restart)
+      vim.keymap.set('n', '<F13>', dap.restart)
 
       dap.listeners.before.attach.dapui_config = function()
         ui.open()
